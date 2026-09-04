@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>양양 1박 2일 Route Planner</title>
   <link rel="preconnect" href="https://unpkg.com">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
+<style>
     :root{
       --bg:#0b0d10; --panel:#12161b; --panel2:#171c22; --text:#f4f6f8; --muted:#98a2ad;
       --line:#27303a; --accent:#ffd54a; --blue:#6cb6ff; --green:#73d69b; --red:#ff7373;
@@ -60,7 +59,7 @@
     .cat{font-size:10px;font-weight:850;color:var(--blue);margin-bottom:4px}
     .empty{font-size:12px;color:var(--muted);padding:11px;border:1px dashed var(--line);border-radius:13px;line-height:1.6}
     .status{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-top:9px}.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
-    .leaflet-control-attribution{font-size:9px!important}
+    
     .marker-num{background:var(--accent);border:2px solid #111;color:#111;border-radius:50%;display:grid;place-items:center;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.32)}
     .tabs{display:flex;gap:6px;margin:6px 0 10px}
     .tab{border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer}
@@ -144,7 +143,7 @@
   </aside>
 
   <main class="mapWrap">
-    <div id="map"></div>
+    <div id="map"></div><div style="position:absolute;left:14px;bottom:14px;z-index:20;background:rgba(17,24,39,.88);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:7px 10px;font-size:10px;font-weight:800">NAVER MAP · Dynamic Map</div>
     <section class="routeCard">
       <h2>전체 이동 동선</h2>
       <div class="routeStats"><span id="routeCount">0곳</span><span id="routeSummary">경로 계산 중</span></div>
@@ -172,7 +171,7 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=m7jhew75hr"></script>
 <script>
 /* ============================================================
    후보 데이터
@@ -358,7 +357,7 @@ const SLOTS = [
 ];
 
 const selections = {};
-let map, routeLayer, markerLayer, lastBounds = null;
+let map, routeLayer=null, markers=[], infoWindows=[], lastBounds = null;
 const geoCache = {};
 
 function allPlaces(){
@@ -369,11 +368,13 @@ function typeName(t){return ({restaurants:"식당",cafes:"카페",spots:"명소"
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 
 function initMap(){
-  map=L.map("map",{zoomControl:true}).setView([38.04,128.62],11);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
-  }).addTo(map);
-  markerLayer=L.layerGroup().addTo(map);
+  map = new naver.maps.Map("map", {
+    center: new naver.maps.LatLng(38.04, 128.62),
+    zoom: 10,
+    zoomControl: true,
+    zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT },
+    mapTypeControl: true
+  });
 }
 
 async function geocode(place){
@@ -488,8 +489,21 @@ function currentRoutePlaces(){
   });
   return out.filter(Boolean);
 }
-function markerIcon(i){
-  return L.divIcon({className:"",html:`<div class="marker-num" style="width:30px;height:30px">${i+1}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+function markerHtml(i, p){
+  const isCafe = p.category && p.category.includes("카페");
+  const isMeal = !isCafe && p.category && (
+    p.category.includes("한식") || p.category.includes("고기") || p.category.includes("쌀국수") ||
+    p.category.includes("해산물") || p.category.includes("옹심이") || p.category.includes("칼국수") ||
+    p.category.includes("버섯") || p.category.includes("전복") || p.category.includes("막국수")
+  );
+  const color = isCafe ? "#f5c542" : (isMeal ? "#22c55e" : "#3b82f6");
+  return {
+    content:`<div style="width:32px;height:32px;border-radius:50%;background:${color};color:#08111b;
+      display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;
+      border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,.35)">${i+1}</div>`,
+    size:new naver.maps.Size(32,32),
+    anchor:new naver.maps.Point(16,16)
+  };
 }
 function fmtMin(sec){
   const m=Math.round(sec/60); if(m<60)return `${m}분`;
@@ -510,8 +524,12 @@ async function getRoute(coords){
 async function updateRoute(){
   const places=currentRoutePlaces();
   document.getElementById("routeCount").textContent=`${places.length}곳`;
-  markerLayer.clearLayers();
-  if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}
+
+  markers.forEach(m=>m.setMap(null));
+  markers=[];
+  infoWindows.forEach(w=>w.close());
+  infoWindows=[];
+  if(routeLayer){ routeLayer.setMap(null); routeLayer=null; }
 
   const located=[];
   for(const p of places){
@@ -519,21 +537,62 @@ async function updateRoute(){
     if(ll) located.push({p,ll});
   }
 
+  const bounds = new naver.maps.LatLngBounds();
   located.forEach((x,i)=>{
-    L.marker(x.ll,{icon:markerIcon(i)}).bindPopup(`<b>${esc(x.p.name)}</b><br><small>${esc(x.p.address)}</small><br><a href="${naverUrl(x.p)}" target="_blank" rel="noopener">네이버 지도</a>`).addTo(markerLayer);
+    const pos=new naver.maps.LatLng(x.ll[0],x.ll[1]);
+    bounds.extend(pos);
+
+    const marker=new naver.maps.Marker({
+      position:pos,
+      map,
+      icon:markerHtml(i,x.p),
+      title:x.p.name
+    });
+
+    const info=new naver.maps.InfoWindow({
+      content:`<div style="padding:10px 12px;min-width:190px;font-size:12px;line-height:1.55;color:#111">
+        <b style="font-size:13px">${esc(x.p.name)}</b><br>
+        <span>${esc(x.p.address)}</span><br>
+        <a href="${naverUrl(x.p)}" target="_blank" rel="noopener" style="color:#03c75a;font-weight:800;text-decoration:none">네이버 지도에서 보기 →</a>
+      </div>`,
+      borderWidth:0,
+      backgroundColor:"transparent",
+      anchorSize:new naver.maps.Size(0,0)
+    });
+
+    naver.maps.Event.addListener(marker,"click",()=>{
+      infoWindows.forEach(w=>w.close());
+      info.open(map,marker);
+    });
+
+    markers.push(marker);
+    infoWindows.push(info);
   });
 
   if(located.length){
-    lastBounds=L.latLngBounds(located.map(x=>x.ll)); map.fitBounds(lastBounds,{padding:[55,55]});
+    lastBounds=bounds;
+    map.fitBounds(bounds,{top:70,right:70,bottom:70,left:70});
   }
 
   const route=await getRoute(located.map(x=>x.ll));
   let legHtml="";
   if(route){
-    routeLayer=L.geoJSON(route.geometry,{style:{weight:6,opacity:.85}}).addTo(map);
-    document.getElementById("totalKm").textContent=(route.distance/1000).toFixed(1)+" km";
-    document.getElementById("totalTime").textContent=fmtMin(route.duration);
-    document.getElementById("routeSummary").textContent=`${(route.distance/1000).toFixed(1)} km · ${fmtMin(route.duration)}`;
+    const path = route.geometry.coordinates.map(c=>new naver.maps.LatLng(c[1],c[0]));
+    routeLayer = new naver.maps.Polyline({
+      map,
+      path,
+      strokeColor:"#3b82f6",
+      strokeOpacity:0.9,
+      strokeWeight:6,
+      strokeLineCap:"round",
+      strokeLineJoin:"round"
+    });
+
+    const totalKm=document.getElementById("totalKm");
+    const totalTime=document.getElementById("totalTime");
+    if(totalKm) totalKm.textContent=(route.distance/1000).toFixed(1)+" km";
+    if(totalTime) totalTime.textContent=fmtMin(route.duration);
+    document.getElementById("routeSummary").textContent=`${(route.distance/1000).toFixed(1)} km · ${fmtMin(route.duration)} · 주행경로는 현재 일반 도로 라우팅 기준`;
 
     located.forEach((x,i)=>{
       const leg=i<route.legs.length?route.legs[i]:null;
@@ -542,8 +601,10 @@ async function updateRoute(){
         <div class="eta">${leg?`${(leg.distance/1000).toFixed(1)} km<br>${fmtMin(leg.duration)}`:"도착"}</div></div>`;
     });
   }else{
-    document.getElementById("totalKm").textContent="–";
-    document.getElementById("totalTime").textContent="–";
+    const totalKm=document.getElementById("totalKm");
+    const totalTime=document.getElementById("totalTime");
+    if(totalKm) totalKm.textContent="–";
+    if(totalTime) totalTime.textContent="–";
     document.getElementById("routeSummary").textContent=located.length<2?"장소를 더 선택하세요":"경로 계산 실패";
     located.forEach((x,i)=> legHtml+=`<div class="leg"><span class="num">${i+1}</span><div><b>${esc(x.p.name)}</b><small>${esc(x.p.category)}</small></div><div class="eta">–</div></div>`);
   }
@@ -554,7 +615,7 @@ document.getElementById("modeBtn").onclick=()=>{
   document.body.classList.toggle("light");
   document.getElementById("modeBtn").textContent=document.body.classList.contains("light")?"☾":"☀︎";
 };
-document.getElementById("fitBtn").onclick=()=>{ if(lastBounds) map.fitBounds(lastBounds,{padding:[55,55]}); };
+document.getElementById("fitBtn").onclick=()=>{ if(lastBounds) map.fitBounds(lastBounds,{top:70,right:70,bottom:70,left:70}); };
 document.getElementById("naverBtn").onclick=()=>{
   const p=currentRoutePlaces().at(-1);
   if(!p)return;
