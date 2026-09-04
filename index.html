@@ -82,7 +82,7 @@
     </div>
 
     <div class="summary">
-      <div><b>9/5 (토) → 9/6 (일)</b></div>
+      <div><b>9/5 (토) → 9/6 (일) · 여여정 11:30 도착</b></div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px">여여정에서 시작 · 도도독 펜션 1박</div>
       <div class="summaryGrid">
         <div class="metric"><span>전체 예상 주행거리</span><b id="totalKm">–</b></div>
@@ -133,16 +133,67 @@
    - image: 본인이 제공하는 이미지 URL 또는 같은 폴더의 파일명 사용 가능
    - lat/lng: 알면 넣는 것을 권장. 없으면 주소로 자동 검색
    ============================================================ */
+const START_PLACE = {
+  id:"home_start",
+  name:"출발지 · 다산 푸르지오",
+  category:"출발지",
+  address:"경기도 남양주시 다산중앙로82번안길 74",
+  hours:"9/5 오전 출발",
+  menu:"여여정 11:30 도착 목표",
+  lat:37.6147076,
+  lng:127.1645875,
+  fixed:true
+};
+
 const PLACE_DATA = {
   restaurants: [
     {
-      id:"yeoyeojeong", name:"여여정", category:"고기집 · 점심특선",
+      id:"yeoyeojeong", name:"여여정", category:"돼지갈비 · 한식 · 점심특선",
       address:"강원특별자치도 양양군 서면 쌍솔배기길 49",
       hours:"영업시간은 방문 전 재확인 권장",
-      menu:"고기솥밥 13,000원 · 고기냉면 13,000원 · 솥밥갈비탕 15,000원 등",
-      image:"",
+      menu:"양념갈비 18,000원 · 생갈비 17,000원 · 삼겹살 15,000원 · 항정살 18,000원 · 돼지꼬리 11,000원 · 꽃갈비살 29,000원 · 살치살 26,000원 · 점심특선 고기솥밥 13,000원 · 고기냉면 13,000원 · 솥밥김치찌개 13,000원 · 솥밥갈비탕 15,000원 · 폭탄계란찜 5,000원 · 백김치국수 6,000원 · 잔치국수 5,000원 · 여정냉면 5,000원",
+      image:"yangyang_assets/yeoyeojeong_3.png",
+      gallery:["yangyang_assets/yeoyeojeong_3.png","yangyang_assets/yeoyeojeong_1.png","yangyang_assets/yeoyeojeong_2.png"],
       fixed:true
     }
+    ,{
+      id:"pogun", name:"포군", category:"베트남 · 쌀국수",
+      address:"강원특별자치도 양양군 현남면 동해대로 260 가동 1층",
+      hours:"토·일 11:00~16:30 · 라스트오더 16:00",
+      menu:"소고기 쌀국수 12,500원 · 매운 소고기 쌀국수 13,000원 · 분짜 18,000원 · 얼큰 곱창 쌀국수 17,000원 · 베트남 볶음밥 12,500원",
+      image:"yangyang_assets/restaurant_1.png"
+    },{
+      id:"gamnamu", name:"감나무식당", category:"황태 · 한식 · 해장국",
+      address:"강원특별자치도 양양군 양양읍 안산1길 73-6",
+      hours:"토·일 07:00~15:00 · 라스트오더 14:30",
+      menu:"황태콩나물해장국 13,000원 · 황태구이 15,000원 · 황태국밥 13,000원 · 송이황태국밥 20,000원 · 버섯불고기 22,000원",
+      image:"yangyang_assets/restaurant_2.png"
+    },{
+      id:"heungbune", name:"흥부네밥상", category:"돌솥밥 · 한식",
+      address:"강원특별자치도 양양군 양양읍 동해대로 3019",
+      hours:"토·일 09:00~14:30",
+      menu:"약수돌솥밥 17,000원 · 곤드레돌솥밥 19,000원 · 흥부네밥상 14,000원 · 황태구이 10,000원 · 더덕구이 12,000원",
+      image:"yangyang_assets/restaurant_3.png"
+    },{
+      id:"songimushroom", name:"송이버섯마을", category:"송이 · 버섯 · 한우",
+      address:"강원특별자치도 양양군 양양읍 남대천로 55-20",
+      hours:"토·일 11:00~21:00 · 브레이크타임 15:00~17:00",
+      menu:"송이 채끝등심 정식 65,000원 · 송이버섯전골 33,000원 · 송이버섯불고기 35,000원 · 송이 한우 샤브 40,000원",
+      image:"yangyang_assets/restaurant_4.png"
+    },{
+      id:"baramkkot", name:"낙산 바람꽃해녀마을", category:"전복 · 해산물 · 해녀음식",
+      address:"강원특별자치도 양양군 양양읍 동해대로 3029-3",
+      hours:"토·일 08:30~19:50 · 라스트오더 18:50",
+      menu:"전복해물뚝배기+미니전복죽 25,000원 · 전복물회+미니전복죽 26,000원 · 전복돌솥비빔밥 18,000원 · 전복죽 16,000원 · 전복얼큰초당순두부 15,000원",
+      image:"yangyang_assets/restaurant_5.png"
+    },{
+      id:"janggane", name:"장가네칼국수", category:"칼국수 · 송이 · 능이",
+      address:"강원특별자치도 양양군 양양읍 남문5길 11-10 1층",
+      hours:"토·일 09:00~15:00",
+      menu:"송이 칼국수 20,000원 · 능이 칼국수 20,000원 · 째복 장칼국수 10,000원 · 째복 칼국수 9,000원 · 메밀전병 15,000원 · 오징어순대 20,000원",
+      image:"yangyang_assets/restaurant_6.png"
+    }
+
     // 예시:
     // {id:"r2", name:"식당명", category:"횟집", address:"...", hours:"11:00-21:00", menu:"모둠회 · 물회", image:"images/r2.jpg"}
   ],
@@ -152,6 +203,7 @@ const PLACE_DATA = {
   spots: [
     // {id:"s1", name:"명소명", category:"산책 · 부모님 추천", address:"...", hours:"상시", menu:"권장 체류 40분", image:"images/s1.jpg"}
   ],
+  starts: [START_PLACE],
   stays: [
     {
       id:"dododog", name:"도도독 펜션", category:"숙소",
@@ -163,7 +215,8 @@ const PLACE_DATA = {
 
 /* 슬롯: 식당·카페 선택 + 중간 명소까지 넣을 수 있게 구성 */
 const SLOTS = [
-  {date:"9/5", time:"11:00", title:"점심 · 여여정", fixed:"yeoyeojeong", fixedType:"restaurants"},
+  {date:"9/5", time:"출발", title:"남양주 다산 출발", fixed:"home_start", fixedType:"starts"},
+  {date:"9/5", time:"11:30", title:"점심 · 여여정", fixed:"yeoyeojeong", fixedType:"restaurants"},
   {date:"9/5", time:"식후", title:"점심 후 카페", select:"cafe_1", type:"cafes"},
   {date:"9/5", time:"오후", title:"명소 / 산책", select:"spot_1", type:"spots"},
   {date:"9/5", time:"15:00", title:"도도독 펜션 체크인", fixed:"dododog", fixedType:"stays"},
