@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>양양 1박 2일 Route Planner</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    :root{
+      --bg:#0b0d10; --panel:#12161b; --panel2:#171c22; --text:#f4f6f8; --muted:#98a2ad;
+      --line:#27303a; --accent:#ffd54a; --blue:#6cb6ff; --green:#73d69b; --red:#ff7373;
+      --shadow:0 14px 40px rgba(0,0,0,.28); --radius:18px;
+    }
+    body.light{
+      --bg:#f5f6f8; --panel:#fff; --panel2:#f7f8fa; --text:#15181c; --muted:#69737e;
+      --line:#e2e6ea; --shadow:0 12px 28px rgba(20,30,40,.10);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Noto Sans KR","Segoe UI",sans-serif}
+    button,select,input{font:inherit}
+    .app{min-height:100vh;display:grid;grid-template-columns:420px 1fr}
+    .side{height:100vh;overflow:auto;border-right:1px solid var(--line);background:var(--panel);padding:20px}
+    .mapWrap{position:relative;min-width:0}
+    #map{height:100vh;width:100%;background:#dfe5e9}
+    .topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .eyebrow{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+    h1{font-size:25px;margin:4px 0 0;letter-spacing:-.035em}
+    .mode{border:1px solid var(--line);background:var(--panel2);color:var(--text);width:42px;height:42px;border-radius:13px;cursor:pointer}
+    .summary{padding:15px;border:1px solid var(--line);background:var(--panel2);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
+    .summaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+    .metric{padding:10px 11px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+    .metric b{display:block;font-size:18px;margin-top:2px}.metric span{font-size:11px;color:var(--muted)}
+    .sectionTitle{font-size:14px;font-weight:850;margin:19px 2px 10px;display:flex;align-items:center;justify-content:space-between}
+    .timeline{display:flex;flex-direction:column;gap:10px}
+    .slot{border:1px solid var(--line);border-radius:16px;background:var(--panel2);padding:13px}
+    .slotHead{display:flex;gap:10px;align-items:flex-start}
+    .time{font-size:12px;font-weight:900;color:var(--accent);min-width:48px;padding-top:2px}
+    .slot h3{font-size:14px;margin:0 0 4px}.slot p{font-size:12px;color:var(--muted);margin:0;line-height:1.45}
+    .selectRow{display:grid;grid-template-columns:88px 1fr;gap:8px;margin-top:9px;align-items:center}
+    .selectRow label{font-size:11px;color:var(--muted)}
+    select{width:100%;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:9px 10px;border-radius:10px;outline:none}
+    .pillRow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .pill{font-size:10px;padding:5px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+    .fixed{border-color:rgba(255,213,74,.42)}
+    .routeCard{position:absolute;z-index:500;right:18px;top:18px;width:min(390px,calc(100% - 36px));background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px}
+    .routeCard h2{font-size:14px;margin:0}.routeStats{display:flex;gap:16px;margin-top:7px;font-size:12px;color:var(--muted)}
+    .routeList{max-height:46vh;overflow:auto;margin-top:10px;display:flex;flex-direction:column;gap:7px}
+    .leg{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:8px}
+    .leg:first-child{border-top:0}
+    .num{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#121212;font-size:11px;font-weight:900}
+    .leg b{font-size:12px;display:block}.leg small{color:var(--muted);font-size:10px}.leg .eta{font-size:11px;text-align:right;color:var(--text)}
+    .navBtns{display:flex;gap:6px;margin-top:8px}
+    .btn{flex:1;border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:var(--panel2);color:var(--text);cursor:pointer;font-size:11px;font-weight:750}
+    .catalog{display:grid;gap:9px}
+    .place{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:11px}
+    .placeTop{display:flex;gap:10px}
+    .thumb{width:64px;height:64px;border-radius:11px;background:linear-gradient(135deg,#29323c,#161a20);object-fit:cover;flex:0 0 auto}
+    .place h4{font-size:13px;margin:0 0 3px}.place p{font-size:11px;color:var(--muted);margin:0;line-height:1.45}
+    .cat{font-size:10px;font-weight:850;color:var(--blue);margin-bottom:4px}
+    .empty{font-size:12px;color:var(--muted);padding:11px;border:1px dashed var(--line);border-radius:13px;line-height:1.6}
+    .status{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-top:9px}.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+    .leaflet-control-attribution{font-size:9px!important}
+    .marker-num{background:var(--accent);border:2px solid #111;color:#111;border-radius:50%;display:grid;place-items:center;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.32)}
+    .tabs{display:flex;gap:6px;margin:6px 0 10px}
+    .tab{border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer}
+    .tab.active{color:var(--text);border-color:var(--accent)}
+    @media(max-width:950px){
+      .app{grid-template-columns:1fr}.side{height:auto;max-height:none;border-right:0}.mapWrap{height:72vh}#map{height:72vh}.routeCard{top:10px;right:10px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="topline">
+      <div>
+        <div class="eyebrow">Yangyang · 1 night 2 days</div>
+        <h1>양양 가족여행 플래너</h1>
+      </div>
+      <button id="modeBtn" class="mode" title="다크/라이트 모드">☀︎</button>
+    </div>
+
+    <div class="summary">
+      <div><b>9/5 (토) → 9/6 (일)</b></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">여여정에서 시작 · 도도독 펜션 1박</div>
+      <div class="summaryGrid">
+        <div class="metric"><span>전체 예상 주행거리</span><b id="totalKm">–</b></div>
+        <div class="metric"><span>전체 예상 운전시간</span><b id="totalTime">–</b></div>
+      </div>
+      <div class="status"><i class="dot"></i><span>지도: OpenStreetMap · 경로: OSRM 자동차 기준</span></div>
+    </div>
+
+    <div class="sectionTitle">여행 일정 <span style="font-size:10px;color:var(--muted)">선택 즉시 지도 반영</span></div>
+    <div id="timeline" class="timeline"></div>
+
+    <div class="sectionTitle">후보 리스트</div>
+    <div class="tabs">
+      <button class="tab active" data-tab="restaurants">식당</button>
+      <button class="tab" data-tab="cafes">카페</button>
+      <button class="tab" data-tab="spots">명소</button>
+    </div>
+    <div id="catalog" class="catalog"></div>
+
+    <div class="sectionTitle">데이터 추가 방법</div>
+    <div class="empty">
+      아래 HTML의 <b>PLACE_DATA</b> 안에 후보를 추가하면 됩니다.<br>
+      식당: 카테고리·메뉴·영업시간·주소·사진<br>
+      카페: 특징·영업시간·주소·사진<br>
+      명소: 추천 포인트·체류시간·주소·사진<br><br>
+      좌표(lat/lng)가 없어도 주소를 기준으로 자동 지오코딩을 시도합니다.
+    </div>
+  </aside>
+
+  <main class="mapWrap">
+    <div id="map"></div>
+    <section class="routeCard">
+      <h2>전체 이동 동선</h2>
+      <div class="routeStats"><span id="routeCount">0곳</span><span id="routeSummary">경로 계산 중</span></div>
+      <div id="routeList" class="routeList"></div>
+      <div class="navBtns">
+        <button class="btn" id="fitBtn">전체 동선 보기</button>
+        <button class="btn" id="naverBtn">네이버 지도 열기</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============================================================
+   후보 데이터
+   - image: 본인이 제공하는 이미지 URL 또는 같은 폴더의 파일명 사용 가능
+   - lat/lng: 알면 넣는 것을 권장. 없으면 주소로 자동 검색
+   ============================================================ */
+const PLACE_DATA = {
+  restaurants: [
+    {
+      id:"yeoyeojeong", name:"여여정", category:"고기집 · 점심특선",
+      address:"강원특별자치도 양양군 서면 쌍솔배기길 49",
+      hours:"영업시간은 방문 전 재확인 권장",
+      menu:"고기솥밥 13,000원 · 고기냉면 13,000원 · 솥밥갈비탕 15,000원 등",
+      image:"",
+      fixed:true
+    }
+    // 예시:
+    // {id:"r2", name:"식당명", category:"횟집", address:"...", hours:"11:00-21:00", menu:"모둠회 · 물회", image:"images/r2.jpg"}
+  ],
+  cafes: [
+    // {id:"c1", name:"카페명", category:"오션뷰", address:"...", hours:"10:00-20:00", menu:"커피 · 디저트", image:"images/c1.jpg"}
+  ],
+  spots: [
+    // {id:"s1", name:"명소명", category:"산책 · 부모님 추천", address:"...", hours:"상시", menu:"권장 체류 40분", image:"images/s1.jpg"}
+  ],
+  stays: [
+    {
+      id:"dododog", name:"도도독 펜션", category:"숙소",
+      address:"강원특별자치도 양양군 현북면 남대천로 1425-48",
+      hours:"체크인 15:00 · 체크아웃 11:00", menu:"1박", image:"", fixed:true
+    }
+  ]
+};
+
+/* 슬롯: 식당·카페 선택 + 중간 명소까지 넣을 수 있게 구성 */
+const SLOTS = [
+  {date:"9/5", time:"11:00", title:"점심 · 여여정", fixed:"yeoyeojeong", fixedType:"restaurants"},
+  {date:"9/5", time:"식후", title:"점심 후 카페", select:"cafe_1", type:"cafes"},
+  {date:"9/5", time:"오후", title:"명소 / 산책", select:"spot_1", type:"spots"},
+  {date:"9/5", time:"15:00", title:"도도독 펜션 체크인", fixed:"dododog", fixedType:"stays"},
+  {date:"9/5", time:"저녁", title:"저녁 식사", select:"dinner", type:"restaurants", exclude:["yeoyeojeong"]},
+  {date:"9/5", time:"식후", title:"저녁 후 카페", select:"cafe_2", type:"cafes"},
+  {date:"9/6", time:"아침", title:"아침 식사", select:"breakfast", type:"restaurants", exclude:["yeoyeojeong"]},
+  {date:"9/6", time:"식후", title:"아침 후 카페", select:"cafe_3", type:"cafes"},
+  {date:"9/6", time:"11:00", title:"도도독 펜션 체크아웃", fixed:"dododog", fixedType:"stays"},
+  {date:"9/6", time:"오전", title:"명소 / 산책", select:"spot_2", type:"spots"},
+  {date:"9/6", time:"점심", title:"점심 식사", select:"lunch2", type:"restaurants", exclude:["yeoyeojeong"]},
+  {date:"9/6", time:"식후", title:"점심 후 카페", select:"cafe_4", type:"cafes"}
+];
+
+const selections = {};
+let map, routeLayer, markerLayer, lastBounds = null;
+const geoCache = {};
+
+function allPlaces(){
+  return [...PLACE_DATA.restaurants,...PLACE_DATA.cafes,...PLACE_DATA.spots,...PLACE_DATA.stays];
+}
+function byId(id){ return allPlaces().find(p=>p.id===id); }
+function typeName(t){return ({restaurants:"식당",cafes:"카페",spots:"명소",stays:"숙소"})[t]||t}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+
+function initMap(){
+  map=L.map("map",{zoomControl:true}).setView([38.04,128.62],11);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  markerLayer=L.layerGroup().addTo(map);
+}
+
+async function geocode(place){
+  if(place.lat && place.lng) return [place.lat,place.lng];
+  if(geoCache[place.address]) return geoCache[place.address];
+  try{
+    const q=encodeURIComponent(place.address+" "+place.name);
+    let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${q}`,{headers:{"Accept-Language":"ko"}});
+    let data=await res.json();
+    if(!data.length){
+      const q2=encodeURIComponent(place.address);
+      res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${q2}`,{headers:{"Accept-Language":"ko"}});
+      data=await res.json();
+    }
+    if(data.length){
+      const ll=[+data[0].lat,+data[0].lon]; geoCache[place.address]=ll; return ll;
+    }
+  }catch(e){}
+  return null;
+}
+
+function renderTimeline(){
+  const wrap=document.getElementById("timeline");
+  wrap.innerHTML=SLOTS.map((s,i)=>{
+    if(s.fixed){
+      const p=byId(s.fixed);
+      return `<div class="slot fixed">
+        <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div>
+          <h3>${esc(s.title)}</h3><p>${esc(p.address)}</p>
+          <div class="pillRow"><span class="pill">${esc(p.category)}</span><span class="pill">${esc(p.hours)}</span></div>
+        </div></div></div>`;
+    }
+    const arr=PLACE_DATA[s.type].filter(p=>!(s.exclude||[]).includes(p.id));
+    return `<div class="slot">
+      <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div style="width:100%">
+        <h3>${esc(s.title)}</h3><p>${typeName(s.type)} 후보 중 선택</p>
+        <div class="selectRow"><label>${typeName(s.type)} 선택</label>
+        <select data-select="${s.select}">
+          <option value="">— 미정 —</option>
+          ${arr.map(p=>`<option value="${p.id}" ${selections[s.select]===p.id?"selected":""}>${esc(p.name)} · ${esc(p.category)}</option>`).join("")}
+        </select></div>
+      </div></div></div>`;
+  }).join("");
+  wrap.querySelectorAll("select").forEach(sel=>sel.addEventListener("change",async e=>{
+    selections[e.target.dataset.select]=e.target.value;
+    await updateRoute();
+  }));
+}
+
+function renderCatalog(type="restaurants"){
+  const el=document.getElementById("catalog"), arr=PLACE_DATA[type];
+  if(!arr.length){ el.innerHTML=`<div class="empty">${typeName(type)} 후보가 아직 없습니다. 리스트를 주시면 이 영역에 사진과 기본 정보를 넣어드릴 수 있습니다.</div>`; return; }
+  el.innerHTML=arr.map(p=>`<div class="place">
+    <div class="placeTop">
+      ${p.image?`<img class="thumb" src="${esc(p.image)}" alt="">`:`<div class="thumb"></div>`}
+      <div>
+        <div class="cat">${esc(p.category)}</div>
+        <h4>${esc(p.name)}</h4>
+        <p>${esc(p.hours)}</p><p>${esc(p.menu)}</p>
+      </div>
+    </div>
+    <div class="pillRow"><span class="pill">${esc(p.address)}</span></div>
+  </div>`).join("");
+}
+
+function currentRoutePlaces(){
+  const out=[];
+  SLOTS.forEach(s=>{
+    if(s.fixed) out.push(byId(s.fixed));
+    else if(selections[s.select]) out.push(byId(selections[s.select]));
+  });
+  return out.filter(Boolean);
+}
+function markerIcon(i){
+  return L.divIcon({className:"",html:`<div class="marker-num" style="width:30px;height:30px">${i+1}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+}
+function fmtMin(sec){
+  const m=Math.round(sec/60); if(m<60)return `${m}분`;
+  const h=Math.floor(m/60), r=m%60; return `${h}시간 ${r? r+"분":""}`;
+}
+
+async function getRoute(coords){
+  if(coords.length<2) return null;
+  const path=coords.map(c=>`${c[1]},${c[0]}`).join(";");
+  try{
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson&steps=false`);
+    const d=await r.json();
+    if(d.code==="Ok") return d.routes[0];
+  }catch(e){}
+  return null;
+}
+
+async function updateRoute(){
+  const places=currentRoutePlaces();
+  document.getElementById("routeCount").textContent=`${places.length}곳`;
+  markerLayer.clearLayers();
+  if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}
+
+  const located=[];
+  for(const p of places){
+    const ll=await geocode(p);
+    if(ll) located.push({p,ll});
+  }
+
+  located.forEach((x,i)=>{
+    L.marker(x.ll,{icon:markerIcon(i)}).bindPopup(`<b>${esc(x.p.name)}</b><br><small>${esc(x.p.address)}</small>`).addTo(markerLayer);
+  });
+
+  if(located.length){
+    lastBounds=L.latLngBounds(located.map(x=>x.ll)); map.fitBounds(lastBounds,{padding:[55,55]});
+  }
+
+  const route=await getRoute(located.map(x=>x.ll));
+  let legHtml="";
+  if(route){
+    routeLayer=L.geoJSON(route.geometry,{style:{weight:6,opacity:.85}}).addTo(map);
+    document.getElementById("totalKm").textContent=(route.distance/1000).toFixed(1)+" km";
+    document.getElementById("totalTime").textContent=fmtMin(route.duration);
+    document.getElementById("routeSummary").textContent=`${(route.distance/1000).toFixed(1)} km · ${fmtMin(route.duration)}`;
+
+    located.forEach((x,i)=>{
+      const leg=i<route.legs.length?route.legs[i]:null;
+      legHtml+=`<div class="leg"><span class="num">${i+1}</span>
+        <div><b>${esc(x.p.name)}</b><small>${esc(x.p.category)}</small></div>
+        <div class="eta">${leg?`${(leg.distance/1000).toFixed(1)} km<br>${fmtMin(leg.duration)}`:"도착"}</div></div>`;
+    });
+  }else{
+    document.getElementById("totalKm").textContent="–";
+    document.getElementById("totalTime").textContent="–";
+    document.getElementById("routeSummary").textContent=located.length<2?"장소를 더 선택하세요":"경로 계산 실패";
+    located.forEach((x,i)=> legHtml+=`<div class="leg"><span class="num">${i+1}</span><div><b>${esc(x.p.name)}</b><small>${esc(x.p.category)}</small></div><div class="eta">–</div></div>`);
+  }
+  document.getElementById("routeList").innerHTML=legHtml || `<div class="empty">일정에서 장소를 선택하면 이동 동선이 표시됩니다.</div>`;
+}
+
+document.getElementById("modeBtn").onclick=()=>{
+  document.body.classList.toggle("light");
+  document.getElementById("modeBtn").textContent=document.body.classList.contains("light")?"☾":"☀︎";
+};
+document.getElementById("fitBtn").onclick=()=>{ if(lastBounds) map.fitBounds(lastBounds,{padding:[55,55]}); };
+document.getElementById("naverBtn").onclick=()=>{
+  const p=currentRoutePlaces().at(-1);
+  if(!p)return;
+  // 네이버 지도 검색 화면을 여는 방식. 실제 내비게이션 길찾기는 네이버 지도 앱/웹에서 목적지 확인 후 실행.
+  window.open("https://map.naver.com/p/search/"+encodeURIComponent(p.name+" "+p.address),"_blank");
+};
+document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active"); renderCatalog(btn.dataset.tab);
+});
+
+initMap();
+renderTimeline();
+renderCatalog();
+updateRoute();
+</script>
+</body>
+</html>
