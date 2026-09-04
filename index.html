@@ -29,7 +29,7 @@
     .summary{padding:15px;border:1px solid var(--line);background:var(--panel2);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
     .summaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
     .metric{padding:10px 11px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
-    .metric b{display:block;font-size:18px;margin-top:2px}.metric span{font-size:11px;color:var(--muted)}
+    .metric b{display:block;font-size:18px;margin-top:2px}.metric span{font-size:12px;color:var(--muted)}
     .sectionTitle{font-size:14px;font-weight:850;margin:19px 2px 10px;display:flex;align-items:center;justify-content:space-between}
     .timeline{display:flex;flex-direction:column;gap:10px}
     .slot{border:1px solid var(--line);border-radius:16px;background:var(--panel2);padding:13px}
@@ -211,15 +211,6 @@
       <button class="tab" data-tab="spots">명소</button>
     </div>
     <div id="catalog" class="catalog"></div>
-
-    <div class="sectionTitle">데이터 추가 방법</div>
-    <div class="empty">
-      아래 HTML의 <b>PLACE_DATA</b> 안에 후보를 추가하면 됩니다.<br>
-      식당: 카테고리·메뉴·영업시간·주소·사진<br>
-      카페: 특징·영업시간·주소·사진<br>
-      명소: 추천 포인트·체류시간·주소·사진<br><br>
-      좌표(lat/lng)가 없어도 주소를 기준으로 자동 지오코딩을 시도합니다.
-    </div>
   </aside>
 
   <main class="mapWrap">
@@ -614,12 +605,33 @@ function fmtMin(sec){
 }
 
 
-function midpointOnPath(coordsA, coordsB){
-  return new naver.maps.LatLng(
-    (coordsA[0]+coordsB[0])/2,
-    (coordsA[1]+coordsB[1])/2
-  );
+function routePointAtHalfDistance(coords){
+  if(!coords || !coords.length) return null;
+  if(coords.length===1) return new naver.maps.LatLng(coords[0][1],coords[0][0]);
+
+  const seg=[];
+  let total=0;
+  for(let i=1;i<coords.length;i++){
+    const a=coords[i-1], b=coords[i];
+    const dx=b[0]-a[0], dy=b[1]-a[1];
+    const d=Math.sqrt(dx*dx+dy*dy);
+    seg.push(d); total+=d;
+  }
+  let target=total/2, acc=0;
+  for(let i=1;i<coords.length;i++){
+    const d=seg[i-1];
+    if(acc+d>=target){
+      const t=d ? (target-acc)/d : 0;
+      const lng=coords[i-1][0]+(coords[i][0]-coords[i-1][0])*t;
+      const lat=coords[i-1][1]+(coords[i][1]-coords[i-1][1])*t;
+      return new naver.maps.LatLng(lat,lng);
+    }
+    acc+=d;
+  }
+  const last=coords[coords.length-1];
+  return new naver.maps.LatLng(last[1],last[0]);
 }
+
 function makeRouteTimeLabel(position,text){
   const overlay=new naver.maps.OverlayView();
   overlay.onAdd=function(){
@@ -649,7 +661,7 @@ async function getRoute(coords){
   if(coords.length<2) return null;
   const path=coords.map(c=>`${c[1]},${c[0]}`).join(";");
   try{
-    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson&steps=false`);
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson&steps=true`);
     const d=await r.json();
     if(d.code==="Ok") return d.routes[0];
   }catch(e){}
@@ -725,12 +737,33 @@ async function updateRoute(){
       strokeLineJoin:"round"
     });
 
-    // 각 이동 구간의 중앙에 예상 운전시간 표시
+    // 각 이동 구간(1→2, 2→3 ...)의 실제 도로 경로 중앙에 예상시간 표시
     route.legs.forEach((leg,i)=>{
-      if(i < located.length-1){
-        const pos=midpointOnPath(located[i].ll, located[i+1].ll);
-        routeTimeLabels.push(makeRouteTimeLabel(pos, fmtMin(leg.duration)));
+      if(i >= located.length-1) return;
+
+      let legCoords=[];
+      (leg.steps||[]).forEach(step=>{
+        const c=step.geometry && step.geometry.coordinates;
+        if(c && c.length){
+          if(legCoords.length && legCoords[legCoords.length-1][0]===c[0][0] && legCoords[legCoords.length-1][1]===c[0][1]){
+            legCoords.push(...c.slice(1));
+          }else{
+            legCoords.push(...c);
+          }
+        }
+      });
+
+      // geometry가 없을 때만 두 장소의 중간점으로 fallback
+      let pos=routePointAtHalfDistance(legCoords);
+      if(!pos){
+        pos=new naver.maps.LatLng(
+          (located[i].ll[0]+located[i+1].ll[0])/2,
+          (located[i].ll[1]+located[i+1].ll[1])/2
+        );
       }
+
+      const label=`${i+1} → ${i+2} · ${fmtMin(leg.duration)}`;
+      routeTimeLabels.push(makeRouteTimeLabel(pos,label));
     });
 
     const totalKm=document.getElementById("totalKm");
