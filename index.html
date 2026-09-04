@@ -161,6 +161,28 @@
 }
 </style>
 
+
+<style>
+/* 고정 일정 장소 색상 보정 */
+.slot.fixed-restaurant { border-left:4px solid #22c55e !important; }
+.slot.fixed-restaurant .time { color:#22c55e !important; }
+
+.slot.fixed-start { border-left:4px solid #6b7280 !important; }
+.slot.fixed-start .time { color:#9ca3af !important; }
+</style>
+
+
+<style>
+.slot.start{border-left:4px solid #6b7280 !important}
+.slot.start .time,.slot.start h3{color:#9ca3af !important}
+.slot.meal .time,.slot.meal h3{color:#22c55e !important}
+</style>
+
+<style>
+/* 숙소 체크인/체크아웃 */
+.slot.stay{border-left:4px solid #f97316 !important}
+.slot.stay .time,.slot.stay h3{color:#f97316 !important}
+</style>
 </head>
 <body>
 <div class="app">
@@ -339,6 +361,7 @@ const PLACE_DATA = {
     {
       id:"seolon", name:"양양 설온", category:"카페 · 디저트 · 푸딩",
       address:"강원특별자치도 양양군 강현면 복골길201번길 58 설온",
+      lat:38.1359, lng:128.5869,
       hours:"토·일 11:00~18:00 · 라스트오더 17:00",
       menu:"설온 온천푸딩 5,500원 · 설온 카스테라 5,500원 · 설온 온천푸딩(초코맛) 5,500원 · 버터크림라떼 7,500원 · 설온크림라떼 7,500원 · 아메리카노 5,500원 · 카페라떼 6,000원",
       image:"",
@@ -347,6 +370,7 @@ const PLACE_DATA = {
     {
       id:"pei", name:"P.E.I coffee", category:"카페 · 커피",
       address:"강원특별자치도 양양군 강현면 동해대로 3539 PEI coffee",
+      lat:38.145, lng:128.605,
       hours:"토 10:00~20:00 · 일 10:00~19:00",
       menu:"메뉴는 네이버 지도에서 확인",
       image:"",
@@ -355,6 +379,7 @@ const PLACE_DATA = {
     {
       id:"mohana", name:"카페 모하나", category:"오션뷰 · 커피 · 디저트",
       address:"강원특별자치도 양양군 현북면 동해대로 1108",
+      lat:37.9708, lng:128.76,
       hours:"토·일 10:00~18:30 · 라스트오더 18:20",
       menu:"MOHANA라떼 7,000원 · 버터크림라떼 7,000원 · 브라운치즈 크로플 7,000원 · 팥빙수 15,000원 · 망고빙수 16,000원 · 자몽에이드 7,000원 · 레몬에이드 7,000원",
       image:"",
@@ -363,6 +388,7 @@ const PLACE_DATA = {
     {
       id:"forest_empty", name:"숲속의 빈터", category:"카페 · 커피 · 시그니처 음료",
       address:"강원특별자치도 양양군 손양면 동명로 114 숲속의 빈터",
+      lat:38.0705, lng:128.6905,
       hours:"매일 09:30~20:00 · 라스트오더 19:30",
       menu:"에스프레소 6,000원 · 아메리카노 6,000원 · 카페라떼 6,500원 · 카푸치노 6,500원 · 썸머라떼 8,000원 · 핸드드립 9,000원 · 참깨크림라떼 8,000원 · 소금커피 7,500원 · 바닐라라떼 7,000원 · 밀크티 7,500원",
       image:"",
@@ -371,6 +397,7 @@ const PLACE_DATA = {
     {
       id:"hajodae_naksan", name:"하조대커피 낙산점", category:"카페 · 디저트 · 시그니처 음료",
       address:"강원특별자치도 양양군 강현면 해맞이길 42-2 5층",
+      lat:38.1245, lng:128.6285,
       hours:"토 10:30~20:00 · 라스트오더 19:30 / 일 10:30~18:00 · 라스트오더 17:30",
       menu:"하조대커피 6,800원 · 흑임자크림라떼 7,500원 · 선셋에이드 8,000원 · 크로플&아이스크림 7,500원 · 크로플 5,000원 · 아메리카노 6,500원 · 카페라떼 7,000원 · 바닐라라떼 7,500원 · 말차라떼 7,500원 · 딸기라떼 7,500원 · 한라봉에이드 7,500원 · 딸기에이드 7,500원 · 자몽에이드 7,500원 · 밀크티 7,000원",
       image:"",
@@ -379,6 +406,7 @@ const PLACE_DATA = {
     {
       id:"cafe_log", name:"카페 로그", category:"카페 · 커피",
       address:"강원특별자치도 양양군 현북면 송이로 86-32 솔향기 언덕 1층 카페 로그",
+      lat:37.9718, lng:128.6745,
       hours:"매일 09:00~20:00 · 라스트오더 19:30",
       menu:"아메리카노 5,000원 · 기타 메뉴는 네이버 지도에서 확인",
       image:"",
@@ -466,7 +494,10 @@ function renderTimeline(){
             <h3>${esc(s.title)}</h3><p>장소 정보를 불러오지 못했습니다.</p>
           </div></div></div>`;
       }
-      return `<div class="slot fixed">
+      const fixedKind=(s.title||"").includes("체크인") || (s.title||"").includes("체크아웃")
+        ? "stay"
+        : (s.fixedType==="restaurants")?"meal":(s.fixedType==="cafes"?"cafe":(s.fixedType==="starts"?"start":"other"));
+      return `<div class="slot fixed ${fixedKind}">
         <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div>
           <h3>${esc(s.title)}</h3><p>${esc(p.address)}</p>
           <div class="pillRow"><span class="pill">${esc(p.category)}</span><span class="pill">${esc(p.hours)}</span></div>
@@ -486,6 +517,7 @@ function renderTimeline(){
   }).join("");
   wrap.querySelectorAll("select").forEach(sel=>sel.addEventListener("change",async e=>{
     selections[e.target.dataset.select]=e.target.value;
+    renderTimeline();
     await updateRoute();
   }));
 }
