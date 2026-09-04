@@ -99,13 +99,56 @@
       .app{grid-template-columns:1fr}.side{height:auto;max-height:none;border-right:0}.mapWrap{height:72vh}#map{height:72vh}.routeCard{top:10px;right:10px}
     }
   </style>
+
+<style>
+  /* 일정 타입 색상 */
+  .slot.meal { border-left: 4px solid #22c55e !important; }
+  .slot.cafe { border-left: 4px solid #f5c542 !important; }
+  .slot.other { border-left: 4px solid #3b82f6 !important; }
+
+  .slot.meal .time { color:#22c55e !important; }
+  .slot.cafe .time { color:#d4a700 !important; }
+  .slot.other .time { color:#3b82f6 !important; }
+
+  /* 지도 라벨 */
+  .map-marker-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    font-weight:900;
+    font-size:12px;
+    color:#111827;
+    background:rgba(255,255,255,.97);
+    border:1px solid rgba(17,24,39,.12);
+    border-radius:999px;
+    padding:4px 8px 4px 4px;
+    box-shadow:0 4px 14px rgba(0,0,0,.18);
+  }
+  .map-marker-label .num{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:#0f172a;font-size:12px;font-weight:900;
+    border:2px solid #fff;
+    box-shadow:0 1px 6px rgba(0,0,0,.2);
+    flex:0 0 28px;
+  }
+</style>
+
+
+<style>
+  .leg.meal .num{background:#22c55e !important;color:#0f172a !important}
+  .leg.cafe .num{background:#f5c542 !important;color:#0f172a !important}
+  .leg.other .num{background:#3b82f6 !important;color:white !important}
+</style>
+
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <div class="topline">
       <div>
-        <div class="eyebrow">Yangyang · 1 night 2 days</div>
+        <div class="eyebrow">Yangyang ·</div>
         <h1>양양 가족여행</h1>
       </div>
       <button id="modeBtn" class="mode" title="다크/라이트 모드">☀︎</button>
@@ -369,7 +412,7 @@ function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 
 function initMap(){
   map = new naver.maps.Map("map", {
-    center: new naver.maps.LatLng(38.04, 128.62),
+    center: new naver.maps.LatLng(38.075, 128.66),
     zoom: 10,
     zoomControl: true,
     zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT },
@@ -482,27 +525,35 @@ function renderCatalog(type="restaurants"){
 }
 
 function currentRoutePlaces(){
-  const out=[];
+  const route=[];
   SLOTS.forEach(s=>{
-    if(s.fixed) out.push(byId(s.fixed));
-    else if(selections[s.select]) out.push(byId(selections[s.select]));
+    let p=null;
+    if(s.fixed) p=byId(s.fixed);
+    else if(s.select){
+      const id=selections[s.select];
+      if(id) p=byId(id);
+    }
+    if(p && p.id!=="home_start") route.push(p);
   });
-  return out.filter(Boolean);
+  return route;
 }
 function markerHtml(i, p){
-  const isCafe = p.category && p.category.includes("카페");
-  const isMeal = !isCafe && p.category && (
-    p.category.includes("한식") || p.category.includes("고기") || p.category.includes("쌀국수") ||
-    p.category.includes("해산물") || p.category.includes("옹심이") || p.category.includes("칼국수") ||
-    p.category.includes("버섯") || p.category.includes("전복") || p.category.includes("막국수")
+  const cat=(p.category||"");
+  const isCafe = cat.includes("카페");
+  const isMeal = !isCafe && (
+    cat.includes("한식") || cat.includes("고기") || cat.includes("쌀국수") ||
+    cat.includes("해산물") || cat.includes("옹심이") || cat.includes("칼국수") ||
+    cat.includes("버섯") || cat.includes("전복") || cat.includes("막국수") ||
+    cat.includes("돼지갈비") || cat.includes("생선") || cat.includes("돌솥밥")
   );
   const color = isCafe ? "#f5c542" : (isMeal ? "#22c55e" : "#3b82f6");
+
   return {
-    content:`<div style="width:32px;height:32px;border-radius:50%;background:${color};color:#08111b;
-      display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;
-      border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,.35)">${i+1}</div>`,
-    size:new naver.maps.Size(32,32),
-    anchor:new naver.maps.Point(16,16)
+    content:`<div class="map-marker-label">
+      <span class="num" style="background:${color}">${i+1}</span>
+      <span>${esc(p.name)}</span>
+    </div>`,
+    anchor:new naver.maps.Point(14,14)
   };
 }
 function fmtMin(sec){
@@ -571,7 +622,7 @@ async function updateRoute(){
 
   if(located.length){
     lastBounds=bounds;
-    map.fitBounds(bounds,{top:70,right:70,bottom:70,left:70});
+    map.fitBounds(bounds,{top:45,right:45,bottom:45,left:45}); setTimeout(()=>{ if(map.getZoom()>13) map.setZoom(13); }, 80);
   }
 
   const route=await getRoute(located.map(x=>x.ll));
@@ -596,7 +647,14 @@ async function updateRoute(){
 
     located.forEach((x,i)=>{
       const leg=i<route.legs.length?route.legs[i]:null;
-      legHtml+=`<div class="leg"><span class="num">${i+1}</span>
+      const cat=(x.p.category||"");
+      const cls=cat.includes("카페")?"cafe":(
+        cat.includes("한식")||cat.includes("고기")||cat.includes("쌀국수")||
+        cat.includes("해산물")||cat.includes("옹심이")||cat.includes("칼국수")||
+        cat.includes("버섯")||cat.includes("전복")||cat.includes("막국수")||
+        cat.includes("돼지갈비")||cat.includes("생선")||cat.includes("돌솥밥")
+      )?"meal":"other";
+      legHtml+=`<div class="leg ${cls}"><span class="num">${i+1}</span>
         <div><b>${esc(x.p.name)}</b><small>${esc(x.p.category)}</small></div>
         <div class="eta">${leg?`${(leg.distance/1000).toFixed(1)} km<br>${fmtMin(leg.duration)}`:"도착"}</div></div>`;
     });
@@ -615,7 +673,7 @@ document.getElementById("modeBtn").onclick=()=>{
   document.body.classList.toggle("light");
   document.getElementById("modeBtn").textContent=document.body.classList.contains("light")?"☾":"☀︎";
 };
-document.getElementById("fitBtn").onclick=()=>{ if(lastBounds) map.fitBounds(lastBounds,{top:70,right:70,bottom:70,left:70}); };
+document.getElementById("fitBtn").onclick=()=>{ if(lastBounds){ map.fitBounds(lastBounds,{top:45,right:45,bottom:45,left:45}); setTimeout(()=>{ if(map.getZoom()>13) map.setZoom(13); },80); } };
 document.getElementById("naverBtn").onclick=()=>{
   const p=currentRoutePlaces().at(-1);
   if(!p)return;
