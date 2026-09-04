@@ -142,6 +142,25 @@
   .leg.other .num{background:#3b82f6 !important;color:white !important}
 </style>
 
+
+<style>
+.route-time-label{
+  position:relative;
+  transform:translate(-50%,-50%);
+  background:rgba(15,23,42,.94);
+  color:#fff;
+  border:2px solid rgba(255,255,255,.92);
+  border-radius:999px;
+  padding:5px 9px;
+  font-size:11px;
+  line-height:1;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:0 3px 10px rgba(0,0,0,.32);
+  pointer-events:none;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -155,13 +174,9 @@
     </div>
 
     <div class="summary">
-      <div><b>9/5 (토) → 9/6 (일) · 여여정 11:30 도착</b></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">남양주 다산 출발 · 여여정 11:30 도착 · 도도독 펜션 1박</div>
-      <div class="summaryGrid">
-        <div class="metric"><span>전체 예상 주행거리</span><b id="totalKm">–</b></div>
-        <div class="metric"><span>전체 예상 운전시간</span><b id="totalTime">–</b></div>
-      </div>
-      <div class="status"><i class="dot"></i><span>지도: OpenStreetMap · 경로: OSRM 자동차 기준</span></div>
+      <div><b>9/5 (토) → 9/6 (일)</b></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">남양주 다산 출발 · 도도독 펜션 1박</div>
+      <div class="status"><i class="dot"></i><span>지도: NAVER Map · 경로: 자동차 예상 기준</span></div>
     </div>
 
     <div class="sectionTitle">여행 일정 <span style="font-size:10px;color:var(--muted)">선택 즉시 지도 반영</span></div>
@@ -400,7 +415,7 @@ const SLOTS = [
 ];
 
 const selections = {};
-let map, routeLayer=null, markers=[], infoWindows=[], lastBounds = null;
+let map, routeLayer=null, markers=[], infoWindows=[], routeTimeLabels=[], lastBounds = null;
 const geoCache = {};
 
 function allPlaces(){
@@ -513,7 +528,7 @@ function renderCatalog(type="restaurants"){
       <div>
         <div class="cat">${esc(p.category)}</div>
         <h4>${esc(p.name)}</h4>
-        <p>${esc(p.hours)}</p><p>${esc(p.menu)}</p>
+        <p>${esc(p.hours)}</p>
       </div>
     </div>
     <div class="pillRow"><span class="pill">${esc(p.address)}</span></div>
@@ -527,13 +542,18 @@ function renderCatalog(type="restaurants"){
 function currentRoutePlaces(){
   const route=[];
   SLOTS.forEach(s=>{
+    // 우리집은 양양 내 동선에서 제외, 체크아웃은 '이동 목적지'가 아니므로 숙소 중복 표기 제외
+    if(s.fixed==="home_start" || (s.title||"").includes("체크아웃")) return;
+
     let p=null;
     if(s.fixed) p=byId(s.fixed);
     else if(s.select){
       const id=selections[s.select];
       if(id) p=byId(id);
     }
-    if(p && p.id!=="home_start") route.push(p);
+
+    // 같은 장소가 연속으로 들어오는 경우 한 번만 표시
+    if(p && (!route.length || route[route.length-1].id!==p.id)) route.push(p);
   });
   return route;
 }
@@ -561,6 +581,38 @@ function fmtMin(sec){
   const h=Math.floor(m/60), r=m%60; return `${h}시간 ${r? r+"분":""}`;
 }
 
+
+function midpointOnPath(coordsA, coordsB){
+  return new naver.maps.LatLng(
+    (coordsA[0]+coordsB[0])/2,
+    (coordsA[1]+coordsB[1])/2
+  );
+}
+function makeRouteTimeLabel(position,text){
+  const overlay=new naver.maps.OverlayView();
+  overlay.onAdd=function(){
+    const div=document.createElement("div");
+    div.className="route-time-label";
+    div.textContent=text;
+    this._el=div;
+    this.getPanes().overlayLayer.appendChild(div);
+  };
+  overlay.draw=function(){
+    if(!this._el)return;
+    const projection=this.getProjection();
+    const point=projection.fromCoordToOffset(position);
+    this._el.style.position="absolute";
+    this._el.style.left=point.x+"px";
+    this._el.style.top=point.y+"px";
+  };
+  overlay.onRemove=function(){
+    if(this._el&&this._el.parentNode)this._el.parentNode.removeChild(this._el);
+    this._el=null;
+  };
+  overlay.setMap(map);
+  return overlay;
+}
+
 async function getRoute(coords){
   if(coords.length<2) return null;
   const path=coords.map(c=>`${c[1]},${c[0]}`).join(";");
@@ -581,6 +633,8 @@ async function updateRoute(){
   infoWindows.forEach(w=>w.close());
   infoWindows=[];
   if(routeLayer){ routeLayer.setMap(null); routeLayer=null; }
+  routeTimeLabels.forEach(x=>x.setMap(null));
+  routeTimeLabels=[];
 
   const located=[];
   for(const p of places){
@@ -639,6 +693,14 @@ async function updateRoute(){
       strokeLineJoin:"round"
     });
 
+    // 각 이동 구간의 중앙에 예상 운전시간 표시
+    route.legs.forEach((leg,i)=>{
+      if(i < located.length-1){
+        const pos=midpointOnPath(located[i].ll, located[i+1].ll);
+        routeTimeLabels.push(makeRouteTimeLabel(pos, fmtMin(leg.duration)));
+      }
+    });
+
     const totalKm=document.getElementById("totalKm");
     const totalTime=document.getElementById("totalTime");
     if(totalKm) totalKm.textContent=(route.distance/1000).toFixed(1)+" km";
@@ -646,7 +708,8 @@ async function updateRoute(){
     document.getElementById("routeSummary").textContent=`${(route.distance/1000).toFixed(1)} km · ${fmtMin(route.duration)} · 주행경로는 현재 일반 도로 라우팅 기준`;
 
     located.forEach((x,i)=>{
-      const leg=i<route.legs.length?route.legs[i]:null;
+      // i번째 장소에는 "직전 장소에서 이곳까지"의 거리/시간을 표시
+      const leg=i>0 ? route.legs[i-1] : null;
       const cat=(x.p.category||"");
       const cls=cat.includes("카페")?"cafe":(
         cat.includes("한식")||cat.includes("고기")||cat.includes("쌀국수")||
@@ -656,7 +719,7 @@ async function updateRoute(){
       )?"meal":"other";
       legHtml+=`<div class="leg ${cls}"><span class="num">${i+1}</span>
         <div><b>${esc(x.p.name)}</b><small>${esc(x.p.category)}</small></div>
-        <div class="eta">${leg?`${(leg.distance/1000).toFixed(1)} km<br>${fmtMin(leg.duration)}`:"도착"}</div></div>`;
+        <div class="eta">${i===0?"시작":(leg?`${(leg.distance/1000).toFixed(1)} km<br>${fmtMin(leg.duration)}`:"–")}</div></div>`;
     });
   }else{
     const totalKm=document.getElementById("totalKm");
