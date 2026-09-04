@@ -65,6 +65,37 @@
     .tabs{display:flex;gap:6px;margin:6px 0 10px}
     .tab{border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer}
     .tab.active{color:var(--text);border-color:var(--accent)}
+
+    .place{cursor:pointer;transition:transform .15s ease,border-color .15s ease}
+    .place:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+    .placeActions{display:flex;gap:7px;margin-top:9px}
+    .miniBtn{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:9px;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer}
+    .modalBack{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;padding:20px}
+    .modalBack.open{display:flex}
+    .modal{width:min(560px,100%);max-height:86vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
+    .modalHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .modal h2{font-size:20px;margin:4px 0 2px}.modal p{font-size:12px;color:var(--muted);line-height:1.65;margin:8px 0}
+    .closeBtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;font-size:18px}
+    .modalImage{width:100%;max-height:280px;object-fit:cover;border-radius:14px;margin:12px 0;display:block}
+    .infoBox{border:1px solid var(--line);background:var(--panel2);border-radius:13px;padding:11px;margin-top:9px}
+    .infoLabel{font-size:10px;color:var(--muted);font-weight:800;margin-bottom:3px}
+    .infoValue{font-size:12px;line-height:1.6}
+    .naverFull{display:block;text-align:center;margin-top:12px;text-decoration:none;border-radius:11px;padding:10px 12px;background:#03c75a;color:#fff;font-size:12px;font-weight:900}
+
+
+    .bottomCatalog{background:var(--bg);border-top:1px solid var(--line);padding:18px}
+    .bottomCatalogInner{max-width:1500px;margin:0 auto}
+    .bottomCatalog .catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+    .slot.meal{border-left:4px solid #22c55e}
+    .slot.cafe{border-left:4px solid #f5c542}
+    .slot.other{border-left:4px solid #3b82f6}
+    .slot.meal .time{color:#22c55e}
+    .slot.cafe .time{color:#d8a900}
+    .slot.other .time{color:#3b82f6}
+    .routeItem.meal .dot{background:#22c55e}
+    .routeItem.cafe .dot{background:#f5c542}
+    .routeItem.other .dot{background:#3b82f6}
+
     @media(max-width:950px){
       .app{grid-template-columns:1fr}.side{height:auto;max-height:none;border-right:0}.mapWrap{height:72vh}#map{height:72vh}.routeCard{top:10px;right:10px}
     }
@@ -76,14 +107,14 @@
     <div class="topline">
       <div>
         <div class="eyebrow">Yangyang · 1 night 2 days</div>
-        <h1>양양 가족여행 플래너</h1>
+        <h1>양양 가족여행</h1>
       </div>
       <button id="modeBtn" class="mode" title="다크/라이트 모드">☀︎</button>
     </div>
 
     <div class="summary">
       <div><b>9/5 (토) → 9/6 (일) · 여여정 11:30 도착</b></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">여여정에서 시작 · 도도독 펜션 1박</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">남양주 다산 출발 · 여여정 11:30 도착 · 도도독 펜션 1박</div>
       <div class="summaryGrid">
         <div class="metric"><span>전체 예상 주행거리</span><b id="totalKm">–</b></div>
         <div class="metric"><span>전체 예상 운전시간</span><b id="totalTime">–</b></div>
@@ -126,6 +157,21 @@
   </main>
 </div>
 
+<div id="placeModalBack" class="modalBack" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="placeModalTitle">
+    <div class="modalHead">
+      <div><div id="placeModalCat" class="cat"></div><h2 id="placeModalTitle"></h2></div>
+      <button id="placeModalClose" class="closeBtn" aria-label="닫기">×</button>
+    </div>
+    <img id="placeModalImg" class="modalImage" alt="" style="display:none">
+    <div class="infoBox"><div class="infoLabel">주소</div><div id="placeModalAddress" class="infoValue"></div></div>
+    <div class="infoBox"><div class="infoLabel">영업시간</div><div id="placeModalHours" class="infoValue"></div></div>
+    <div class="infoBox"><div class="infoLabel">주요 메뉴</div><div id="placeModalMenu" class="infoValue"></div></div>
+    <div id="placeModalNote" class="infoBox" style="display:none"></div>
+    <a id="placeModalNaver" class="naverFull" href="#" target="_blank" rel="noopener">네이버 지도에서 확인</a>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ============================================================
@@ -138,7 +184,7 @@ const START_PLACE = {
   name:"우리집 · 남양주 다산",
   category:"출발지",
   address:"경기도 남양주시 다산중앙로82번안길 74",
-  hours:"9/5 오전 출발",
+  hours:"9/5 08:00 출발 권장 · 11:30 여여정 도착 목표",
   menu:"여여정 11:30 도착 목표",
   lat:37.6147076,
   lng:127.1645875,
@@ -153,49 +199,84 @@ const PLACE_DATA = {
       hours:"영업시간은 방문 전 재확인 권장",
       menu:"양념갈비 18,000원 · 생갈비 17,000원 · 삼겹살 15,000원 · 항정살 18,000원 · 돼지꼬리 11,000원 · 꽃갈비살 29,000원 · 살치살 26,000원 · 점심특선 고기솥밥 13,000원 · 고기냉면 13,000원 · 솥밥김치찌개 13,000원 · 솥밥갈비탕 15,000원 · 폭탄계란찜 5,000원 · 백김치국수 6,000원 · 잔치국수 5,000원 · 여정냉면 5,000원",
       image:"yangyang_assets/yeoyeojeong_3.png",
-      gallery:["yangyang_assets/yeoyeojeong_3.png","yangyang_assets/yeoyeojeong_1.png","yangyang_assets/yeoyeojeong_2.png"],
+      naver:"https://naver.me/Fcmc0bEP",
       fixed:true
-    }
-    ,{
+    },
+    {
+      id:"memil", name:"메밀꽃향기 양양본점", category:"막국수 · 옹심이 · 한식",
+      address:"강원특별자치도 양양군 강현면 진미로 218",
+      hours:"토·일 10:00~19:00",
+      menu:"들깨감자옹심이 12,000원 · 들기름막국수 11,000원 · 소고기 육전(중) 21,000원 · 메밀막국수 10,000원 · 메밀전병 8,000원",
+      naver:"https://naver.me/FPnK9pGp",
+      lat:38.1375614, lng:128.5920245
+    },
+    {
+      id:"gonggane", name:"공가네감자옹심이 본점", category:"감자옹심이 · 강원 향토음식",
+      address:"강원특별자치도 양양군 양양읍 남문5길 5-17",
+      hours:"토·일 10:00~19:00 · 브레이크 15:00~17:00 · 라스트오더 18:50",
+      menu:"감자옹심이 12,000원 · 세트(2인) 35,000원 · 오징어순대 35,000원 · 메밀전병 15,000원",
+      naver:"https://naver.me/xxYnfcVZ",
+      lat:38.0753181, lng:128.6231953
+    },
+    {
+      id:"yangyangdaehae", name:"양양대해", category:"생선탕 · 가자미 · 해산물",
+      address:"강원특별자치도 양양군 현북면 기사문길 31-1 1층",
+      hours:"토 09:00~20:00 · 일 09:00~15:00",
+      menu:"곰치국 25,000원 · 대구탕 15,000원 · 가자미회덮밥 18,000원 · 가자미 물회 18,000원 · 미소 가자미 백반 13,000원",
+      naver:"https://naver.me/GprCiM3q",
+      lat:38.0081049, lng:128.7299891
+    },
+    {
       id:"pogun", name:"포군", category:"베트남 · 쌀국수",
       address:"강원특별자치도 양양군 현남면 동해대로 260 가동 1층",
       hours:"토·일 11:00~16:30 · 라스트오더 16:00",
       menu:"소고기 쌀국수 12,500원 · 매운 소고기 쌀국수 13,000원 · 분짜 18,000원 · 얼큰 곱창 쌀국수 17,000원 · 베트남 볶음밥 12,500원",
-      image:"yangyang_assets/restaurant_1.png"
-    },{
+      image:"yangyang_assets/restaurant_1.png",
+      naver:"https://naver.me/5kxP0OKW",
+      lat:37.9337416, lng:128.7894183
+    },
+    {
       id:"gamnamu", name:"감나무식당", category:"황태 · 한식 · 해장국",
       address:"강원특별자치도 양양군 양양읍 안산1길 73-6",
       hours:"토·일 07:00~15:00 · 라스트오더 14:30",
       menu:"황태콩나물해장국 13,000원 · 황태구이 15,000원 · 황태국밥 13,000원 · 송이황태국밥 20,000원 · 버섯불고기 22,000원",
-      image:"yangyang_assets/restaurant_2.png"
-    },{
+      image:"yangyang_assets/restaurant_2.png",
+      naver:"https://naver.me/FgHDL5nt"
+    },
+    {
       id:"heungbune", name:"흥부네밥상", category:"돌솥밥 · 한식",
       address:"강원특별자치도 양양군 양양읍 동해대로 3019",
       hours:"토·일 09:00~14:30",
       menu:"약수돌솥밥 17,000원 · 곤드레돌솥밥 19,000원 · 흥부네밥상 14,000원 · 황태구이 10,000원 · 더덕구이 12,000원",
-      image:"yangyang_assets/restaurant_3.png"
-    },{
+      image:"yangyang_assets/restaurant_3.png",
+      naver:"https://naver.me/FxFtiNQh"
+    },
+    {
       id:"songimushroom", name:"송이버섯마을", category:"송이 · 버섯 · 한우",
       address:"강원특별자치도 양양군 양양읍 남대천로 55-20",
       hours:"토·일 11:00~21:00 · 브레이크타임 15:00~17:00",
       menu:"송이 채끝등심 정식 65,000원 · 송이버섯전골 33,000원 · 송이버섯불고기 35,000원 · 송이 한우 샤브 40,000원",
-      image:"yangyang_assets/restaurant_4.png"
-    },{
+      image:"yangyang_assets/restaurant_4.png",
+      naver:"https://naver.me/IItcrtPj"
+    },
+    {
       id:"baramkkot", name:"낙산 바람꽃해녀마을", category:"전복 · 해산물 · 해녀음식",
       address:"강원특별자치도 양양군 양양읍 동해대로 3029-3",
       hours:"토·일 08:30~19:50 · 라스트오더 18:50",
       menu:"전복해물뚝배기+미니전복죽 25,000원 · 전복물회+미니전복죽 26,000원 · 전복돌솥비빔밥 18,000원 · 전복죽 16,000원 · 전복얼큰초당순두부 15,000원",
-      image:"yangyang_assets/restaurant_5.png"
-    },{
+      image:"yangyang_assets/restaurant_5.png",
+      naverSearch:"낙산 바람꽃해녀마을 강원 양양군 양양읍 동해대로 3029-3",
+      linkNote:"전달해주신 8번 링크가 7번과 동일해서 식당명 검색으로 연결"
+    },
+    {
       id:"janggane", name:"장가네칼국수", category:"칼국수 · 송이 · 능이",
       address:"강원특별자치도 양양군 양양읍 남문5길 11-10 1층",
       hours:"토·일 09:00~15:00",
       menu:"송이 칼국수 20,000원 · 능이 칼국수 20,000원 · 째복 장칼국수 10,000원 · 째복 칼국수 9,000원 · 메밀전병 15,000원 · 오징어순대 20,000원",
-      image:"yangyang_assets/restaurant_6.png"
+      image:"yangyang_assets/restaurant_6.png",
+      naverSearch:"장가네칼국수 강원 양양군 양양읍 남문5길 11-10",
+      linkNote:"전달해주신 9번 링크가 7번과 동일해서 식당명 검색으로 연결"
     }
-
-    // 예시:
-    // {id:"r2", name:"식당명", category:"횟집", address:"...", hours:"11:00-21:00", menu:"모둠회 · 물회", image:"images/r2.jpg"}
   ],
   cafes: [
     // {id:"c1", name:"카페명", category:"오션뷰", address:"...", hours:"10:00-20:00", menu:"커피 · 디저트", image:"images/c1.jpg"}
@@ -215,7 +296,7 @@ const PLACE_DATA = {
 
 /* 슬롯: 식당·카페 선택 + 중간 명소까지 넣을 수 있게 구성 */
 const SLOTS = [
-  {date:"9/5", time:"출발", title:"우리집 출발 · 남양주 다산", fixed:"home_start", fixedType:"starts"},
+  {date:"9/5", time:"08:00 권장", title:"우리집 출발 · 남양주 다산", fixed:"home_start", fixedType:"starts"},
   {date:"9/5", time:"11:30", title:"여여정 도착 · 점심", fixed:"yeoyeojeong", fixedType:"restaurants"},
   {date:"9/5", time:"식후", title:"점심 후 카페", select:"cafe_1", type:"cafes"},
   {date:"9/5", time:"15:00", title:"도도독 펜션 체크인", fixed:"dododog", fixedType:"stays"},
@@ -273,7 +354,8 @@ function renderTimeline(){
     if(s.fixed){
       const p=byId(s.fixed);
       if(!p){
-        return `<div class="slot fixed">
+        const kind=(s.fixedType==="restaurants")?"meal":(s.fixedType==="cafes"?"cafe":"other");
+      return `<div class="slot fixed ${kind}">
           <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div>
             <h3>${esc(s.title)}</h3><p>장소 정보를 불러오지 못했습니다.</p>
           </div></div></div>`;
@@ -285,7 +367,8 @@ function renderTimeline(){
         </div></div></div>`;
     }
     const arr=PLACE_DATA[s.type].filter(p=>!(s.exclude||[]).includes(p.id));
-    return `<div class="slot">
+    const kind=(s.type==="restaurants")?"meal":(s.type==="cafes"?"cafe":"other");
+    return `<div class="slot ${kind}">
       <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div style="width:100%">
         <h3>${esc(s.title)}</h3><p>${typeName(s.type)} 후보 중 선택</p>
         <div class="selectRow"><label>${typeName(s.type)} 선택</label>
@@ -301,12 +384,41 @@ function renderTimeline(){
   }));
 }
 
+function naverUrl(p){
+  if(p.naver) return p.naver;
+  if(p.naverSearch) return "https://map.naver.com/p/search/"+encodeURIComponent(p.naverSearch);
+  return "https://map.naver.com/p/search/"+encodeURIComponent(p.name+" "+p.address);
+}
+function safeImgTag(p){
+  if(!p.image) return "";
+  return `<img class="thumb" src="${esc(p.image)}" alt="" onerror="this.style.display='none'">`;
+}
+function openPlaceModal(id){
+  const p=byId(id); if(!p) return;
+  document.getElementById("placeModalCat").textContent=p.category||"";
+  document.getElementById("placeModalTitle").textContent=p.name||"";
+  document.getElementById("placeModalAddress").textContent=p.address||"";
+  document.getElementById("placeModalHours").textContent=p.hours||"정보 없음";
+  document.getElementById("placeModalMenu").textContent=p.menu||"정보 없음";
+  const img=document.getElementById("placeModalImg");
+  if(p.image){
+    img.src=p.image; img.style.display="block";
+    img.onerror=()=>{img.style.display="none";img.removeAttribute("src");};
+  }else{
+    img.style.display="none"; img.removeAttribute("src");
+  }
+  const note=document.getElementById("placeModalNote");
+  if(p.linkNote){note.style.display="block";note.innerHTML=`<div class="infoLabel">네이버 지도 링크</div><div class="infoValue">${esc(p.linkNote)}</div>`;}
+  else note.style.display="none";
+  document.getElementById("placeModalNaver").href=naverUrl(p);
+  document.getElementById("placeModalBack").classList.add("open");
+}
 function renderCatalog(type="restaurants"){
   const el=document.getElementById("catalog"), arr=PLACE_DATA[type];
-  if(!arr.length){ el.innerHTML=`<div class="empty">${typeName(type)} 후보가 아직 없습니다. 리스트를 주시면 이 영역에 사진과 기본 정보를 넣어드릴 수 있습니다.</div>`; return; }
-  el.innerHTML=arr.map(p=>`<div class="place">
+  if(!arr.length){ el.innerHTML=`<div class="empty">${typeName(type)} 후보가 아직 없습니다.</div>`; return; }
+  el.innerHTML=arr.map(p=>`<div class="place" onclick="openPlaceModal('${p.id}')">
     <div class="placeTop">
-      ${p.image?`<img class="thumb" src="${esc(p.image)}" alt="">`:`<div class="thumb"></div>`}
+      ${safeImgTag(p)}
       <div>
         <div class="cat">${esc(p.category)}</div>
         <h4>${esc(p.name)}</h4>
@@ -314,6 +426,10 @@ function renderCatalog(type="restaurants"){
       </div>
     </div>
     <div class="pillRow"><span class="pill">${esc(p.address)}</span></div>
+    <div class="placeActions">
+      <button class="miniBtn" onclick="event.stopPropagation();openPlaceModal('${p.id}')">상세보기</button>
+      <button class="miniBtn" onclick="event.stopPropagation();window.open(naverUrl(byId('${p.id}')),'_blank')">네이버 지도</button>
+    </div>
   </div>`).join("");
 }
 
@@ -357,7 +473,7 @@ async function updateRoute(){
   }
 
   located.forEach((x,i)=>{
-    L.marker(x.ll,{icon:markerIcon(i)}).bindPopup(`<b>${esc(x.p.name)}</b><br><small>${esc(x.p.address)}</small>`).addTo(markerLayer);
+    L.marker(x.ll,{icon:markerIcon(i)}).bindPopup(`<b>${esc(x.p.name)}</b><br><small>${esc(x.p.address)}</small><br><a href="${naverUrl(x.p)}" target="_blank" rel="noopener">네이버 지도</a>`).addTo(markerLayer);
   });
 
   if(located.length){
@@ -402,6 +518,11 @@ document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active"); renderCatalog(btn.dataset.tab);
 });
+
+
+document.getElementById("placeModalClose").onclick=()=>document.getElementById("placeModalBack").classList.remove("open");
+document.getElementById("placeModalBack").onclick=e=>{if(e.target.id==="placeModalBack")e.currentTarget.classList.remove("open")};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")document.getElementById("placeModalBack").classList.remove("open")});
 
 initMap();
 renderTimeline();
