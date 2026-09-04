@@ -234,10 +234,10 @@ let map, routeLayer, markerLayer, lastBounds = null;
 const geoCache = {};
 
 function allPlaces(){
-  return [...PLACE_DATA.restaurants,...PLACE_DATA.cafes,...PLACE_DATA.spots,...PLACE_DATA.stays];
+  return [...PLACE_DATA.restaurants,...PLACE_DATA.cafes,...PLACE_DATA.spots,...PLACE_DATA.starts,...PLACE_DATA.stays];
 }
 function byId(id){ return allPlaces().find(p=>p.id===id); }
-function typeName(t){return ({restaurants:"식당",cafes:"카페",spots:"명소",stays:"숙소"})[t]||t}
+function typeName(t){return ({restaurants:"식당",cafes:"카페",spots:"명소",starts:"출발지",stays:"숙소"})[t]||t}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 
 function initMap(){
@@ -272,6 +272,12 @@ function renderTimeline(){
   wrap.innerHTML=SLOTS.map((s,i)=>{
     if(s.fixed){
       const p=byId(s.fixed);
+      if(!p){
+        return `<div class="slot fixed">
+          <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div>
+            <h3>${esc(s.title)}</h3><p>장소 정보를 불러오지 못했습니다.</p>
+          </div></div></div>`;
+      }
       return `<div class="slot fixed">
         <div class="slotHead"><div class="time">${s.date}<br>${s.time}</div><div>
           <h3>${esc(s.title)}</h3><p>${esc(p.address)}</p>
