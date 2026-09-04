@@ -135,7 +135,7 @@
    ============================================================ */
 const START_PLACE = {
   id:"home_start",
-  name:"출발지 · 다산 푸르지오",
+  name:"우리집 · 남양주 다산",
   category:"출발지",
   address:"경기도 남양주시 다산중앙로82번안길 74",
   hours:"9/5 오전 출발",
@@ -215,10 +215,9 @@ const PLACE_DATA = {
 
 /* 슬롯: 식당·카페 선택 + 중간 명소까지 넣을 수 있게 구성 */
 const SLOTS = [
-  {date:"9/5", time:"출발", title:"남양주 다산 출발", fixed:"home_start", fixedType:"starts"},
-  {date:"9/5", time:"11:30", title:"점심 · 여여정", fixed:"yeoyeojeong", fixedType:"restaurants"},
+  {date:"9/5", time:"출발", title:"우리집 출발 · 남양주 다산", fixed:"home_start", fixedType:"starts"},
+  {date:"9/5", time:"11:30", title:"여여정 도착 · 점심", fixed:"yeoyeojeong", fixedType:"restaurants"},
   {date:"9/5", time:"식후", title:"점심 후 카페", select:"cafe_1", type:"cafes"},
-  {date:"9/5", time:"오후", title:"명소 / 산책", select:"spot_1", type:"spots"},
   {date:"9/5", time:"15:00", title:"도도독 펜션 체크인", fixed:"dododog", fixedType:"stays"},
   {date:"9/5", time:"저녁", title:"저녁 식사", select:"dinner", type:"restaurants", exclude:["yeoyeojeong"]},
   {date:"9/5", time:"식후", title:"저녁 후 카페", select:"cafe_2", type:"cafes"},
